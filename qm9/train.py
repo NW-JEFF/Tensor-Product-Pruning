@@ -50,7 +50,7 @@ def train(gpu, model, args):
 
     # Init wandb
     if args.log and gpu == 0:
-        wandb.init(project="SEGNN " + args.dataset + " " + args.target, name=args.ID, config=args, entity="segnn")
+        wandb.init(project="SEGNN " + args.dataset + " " + args.target, name=args.ID, config=args)
 
     # Let's start!
     if gpu == 0:
