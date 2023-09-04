@@ -134,7 +134,6 @@ if __name__ == "__main__":
         args.ID = "_".join([args.model, args.dataset, args.target, str(np.random.randint(1e4, 1e5))])
     elif args.model == "seconv":
         from models.segnn.seconv import SEConv
-        print(args.init)
         model = SEConv(input_irreps,
                        hidden_irreps,
                        output_irreps,
