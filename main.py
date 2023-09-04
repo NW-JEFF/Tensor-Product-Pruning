@@ -18,7 +18,7 @@ def _find_free_port():
     sock.close()
     # NOTE: there is still a chance the port could be taken by other processes.
     return port
-    # hi
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -101,17 +101,19 @@ if __name__ == "__main__":
     if args.dataset == "qm9":
         from qm9.train import train
         task = "graph"
-        if args.feature_type == "one_hot":
+        if args.feature_type == "one_hot":  # (non-geometric: concatenation of type 0) node feature
             input_irreps = Irreps("5x0e")
-        elif args.feature_type == "cormorant":
+        elif args.feature_type == "cormorant":  # different papers require different formats
             input_irreps = Irreps("15x0e")
         elif args.feature_type == "gilmer":
             input_irreps = Irreps("11x0e")
         output_irreps = Irreps("1x0e")
 
-        edge_attr_irreps = Irreps.spherical_harmonics(args.lmax_attr)
-        node_attr_irreps = Irreps.spherical_harmonics(args.lmax_attr)
-        additional_message_irreps = Irreps("1x0e")
+        # direct sum of irreps corresponding to spherical harmonics with l = 0,...,lmax_attr; default parity = -1
+            # e.g. Irreps.spherical_harmonics(3): 1x0e+1x1o+1x2e+1x3o; Irreps.spherical_harmonics(4, p=1): 1x0e+1x1e+1x2e+1x3e+1x4e
+        edge_attr_irreps = Irreps.spherical_harmonics(args.lmax_attr)  # edge attributes are spherical_harmonics embeddings
+        node_attr_irreps = Irreps.spherical_harmonics(args.lmax_attr)  # node attributes are average edge embeddings over neighbours
+        additional_message_irreps = Irreps("1x0e")  # this is for relative distance
     elif args.dataset == "nbody":
         from nbody.train_nbody import train
         task = "node"

@@ -156,15 +156,20 @@ class SEGNNLayer(MessagePassing):
         super().__init__(node_dim=-2, aggr="add")
         self.hidden_irreps = hidden_irreps
 
+        # message from (non-gemetric) node feature and relative distance
+            # h_i = (f_i, f_j, ||x_j-x_i||^2), see paper Section 2.1
         message_input_irreps = (2 * input_irreps + additional_message_irreps).simplify()
+        # node feature update
         update_input_irreps = (input_irreps + hidden_irreps).simplify()
 
+        # two-layer steerable MLP: obtain message from h and edge_attr
         self.message_layer_1 = O3TensorProductSwishGate(
             message_input_irreps, hidden_irreps, edge_attr_irreps
         )
         self.message_layer_2 = O3TensorProductSwishGate(
             hidden_irreps, hidden_irreps, edge_attr_irreps
         )
+        # two-layer steerable MLP: update f using f and node_attr
         self.update_layer_1 = O3TensorProductSwishGate(
             update_input_irreps, hidden_irreps, node_attr_irreps
         )

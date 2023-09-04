@@ -92,7 +92,7 @@ if __name__ == "__main__":
 
     # Select dataset.
     if args.dataset == "qm9":
-        from qm9.time_qm9 import main
+        from qm9.time import main
         task = "graph"
         if args.feature_type == "one_hot":
             input_irreps = Irreps("5x0e")
@@ -129,7 +129,7 @@ if __name__ == "__main__":
                       norm=args.norm,
                       pool=args.pool,
                       task=task,
-                      init=args.init,
+                      # init=args.init,  # there is no init in SEGNN
                       additional_message_irreps=additional_message_irreps)
         args.ID = "_".join([args.model, args.dataset, args.target, str(np.random.randint(1e4, 1e5))])
     elif args.model == "seconv":
@@ -143,7 +143,7 @@ if __name__ == "__main__":
                        norm=args.norm,
                        pool=args.pool,
                        task=task,
-                       init=args.init,
+                       init=args.init,  # there is no init in SEConv
                        additional_message_irreps=additional_message_irreps,
                        conv_type=args.conv_type)
         args.ID = "_".join([args.model, args.conv_type, args.dataset, str(np.random.randint(1e4, 1e5))])
