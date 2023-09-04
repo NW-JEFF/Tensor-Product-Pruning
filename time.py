@@ -134,6 +134,7 @@ if __name__ == "__main__":
         args.ID = "_".join([args.model, args.dataset, args.target, str(np.random.randint(1e4, 1e5))])
     elif args.model == "seconv":
         from models.segnn.seconv import SEConv
+        print(args.init)
         model = SEConv(input_irreps,
                        hidden_irreps,
                        output_irreps,
@@ -143,7 +144,7 @@ if __name__ == "__main__":
                        norm=args.norm,
                        pool=args.pool,
                        task=task,
-                       init=args.init,  # there is no init in SEConv
+                       # init=args.init,  # there is no init in SEConv
                        additional_message_irreps=additional_message_irreps,
                        conv_type=args.conv_type)
         args.ID = "_".join([args.model, args.conv_type, args.dataset, str(np.random.randint(1e4, 1e5))])
