@@ -5,6 +5,7 @@ import torch
 import torch.nn as nn
 import torch.distributed as dist
 from torch.optim.lr_scheduler import MultiStepLR
+from torch.nn.utils import prune
 
 from qm9.dataset import QM9
 from qm9.evaluate import evaluate
@@ -92,6 +93,15 @@ def train(gpu, model, args):
 
         # Evaluate on validation set
         valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
+
+        # Pruning
+        parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
+        prune.global_unstructured(
+            parameters_to_prune,
+            pruning_method=prune.L1Unstructured,
+            amount=0.01,
+        )
+
         # Save best validation model
         if valid_MAE < best_valid_MAE:
             best_valid_MAE = valid_MAE

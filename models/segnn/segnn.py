@@ -98,6 +98,7 @@ class SEGNN(nn.Module):
         # Trivial irrep value should always be 1 (is automatically so for connected nodes, but isolated nodes are now 0)
         graph.node_attr[:, 0] = 1.0
 
+    # will be called when feeding input
     def forward(self, graph):
         """SEGNN forward pass"""
         x, pos, edge_index, edge_attr, node_attr, batch = (
@@ -201,6 +202,7 @@ class SEGNNLayer(MessagePassing):
         additional_message_features=None,
     ):
         """Propagate messages along edges"""
+        # propagate automatically calls message and update
         x = self.propagate(
             edge_index,
             x=x,

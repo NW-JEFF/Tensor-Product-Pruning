@@ -41,7 +41,10 @@ class O3TensorProduct(nn.Module):
         self.tp = FullyConnectedTensorProduct(
             irreps_in1=self.irreps_in1,
             irreps_in2=self.irreps_in2,
-            irreps_out=self.irreps_out, shared_weights=True, normalization='component')
+            irreps_out=self.irreps_out, 
+            internal_weights = True,
+            shared_weights=True, 
+            normalization='component')
 
         # For each zeroth order output irrep we need a bias
         # So first determine the order for each output tensor and their dims
