@@ -66,7 +66,17 @@ def train(gpu, model, args):
             # Forward & Backward.
             graph = graph.to(device)
             out = model(graph).squeeze()
+            
             loss = criterion(out, (graph.y - target_mean)/target_mad)
+
+            # (!) add extra l1 loss
+            # sparsity_loss = 0
+            # for n,m in model.named_parameters():
+            #     if 'tp.weight' in n:
+            #         sparsity_loss += m.abs().mean()
+            # l1_loss_weight = 5e-3
+            # loss += sparsity_loss * l1_loss_weight
+            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -94,13 +104,13 @@ def train(gpu, model, args):
         # Evaluate on validation set
         valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
 
-        # Pruning
-        parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
-        prune.global_unstructured(
-            parameters_to_prune,
-            pruning_method=prune.L1Unstructured,
-            amount=0.01,
-        )
+        # (!) Pruning
+        # parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
+        # prune.global_unstructured(
+        #     parameters_to_prune,
+        #     pruning_method=prune.L1Unstructured,
+        #     amount=0.01,
+        # )
 
         # Save best validation model
         if valid_MAE < best_valid_MAE:
