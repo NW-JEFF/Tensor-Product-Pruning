@@ -1,10 +1,13 @@
+"""Hard-code L1 pruning on a trained model and continue training."""
+
 import wandb
 import numpy as np
 import os
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-from torch.optim.lr_scheduler import MultiStepLR
+# from torch.optim.lr_scheduler import MultiStepLR
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torch.nn.utils import prune
 
 from qm9.dataset import QM9
@@ -12,7 +15,7 @@ from qm9.evaluate import evaluate
 import utils
 
 
-def train(gpu, model, args):
+def train_prune_retrain(gpu, model, args):
     if args.gpus == 0:
         device = 'cpu'
     else:
@@ -36,9 +39,10 @@ def train(gpu, model, args):
     # Get train set statistics
     target_mean, target_mad = train_loader.dataset.calc_stats()
 
-    # Set up optimizer and loss function
-    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    scheduler = MultiStepLR(optimizer, milestones=[int(0.8*(args.epochs)), int(0.9*(args.epochs))], verbose=True)
+    # (!) Set up smaller stepsize for retraining
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=args.weight_decay)
+    scheduler = CosineAnnealingLR(optimizer, T_max=55, verbose=True)
+    # scheduler = MultiStepLR(optimizer, milestones=[int(0.8*(args.epochs)), int(0.9*(args.epochs))], verbose=True)
     criterion = nn.L1Loss()
 
     # Logging parameters
@@ -49,9 +53,21 @@ def train(gpu, model, args):
     loss_sum = 0
     train_MAE_sum = 0
 
+    # (!) trained model's random sequence number
+    seq_num = str(92158)
+    trained_paras = torch.load('/mnt/workspace/linchen/nanxiang/my_segnn/saved models/segnn_qm9_alpha_'+seq_num+'_cuda:0.pt')
+
+    # Prune parameters with L1 norm less than the specified threshold
+    t = 0.0041
+    for k, v in trained_paras.items():
+            if "tp.weight" in k:
+                v[v.abs() < t] = 0
+            
+    model.load_state_dict(trained_paras)
+
     # Init wandb
     if args.log and gpu == 0:
-        wandb.init(project="SEGNN " + args.dataset + " " + args.target, name=args.ID, config=args)
+        wandb.init(project="L1-Prune-Retrain-" + args.dataset + "-" + args.target, name=args.ID, config=args)
 
     # Let's start!
     if gpu == 0:
@@ -68,15 +84,6 @@ def train(gpu, model, args):
             out = model(graph).squeeze()
             
             loss = criterion(out, (graph.y - target_mean)/target_mad)
-
-            # (!) add extra l1 loss
-            # sparsity_loss = 0
-            # for n,m in model.named_parameters():
-            #     if 'tp.weight' in n:
-            #         sparsity_loss += m.abs().mean()
-            # l1_loss_weight = 1e-2
-            # loss += sparsity_loss * l1_loss_weight
-            
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -104,21 +111,7 @@ def train(gpu, model, args):
         # Evaluate on validation set
         valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
 
-        # (!) Pruning
-        # message_parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
-        # prune.global_unstructured(
-        #     message_parameters_to_prune,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.03,
-        # )
-        # update_parameters_to_prune = tuple((segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers)
-        # prune.global_unstructured(
-        #     update_parameters_to_prune,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.02,
-        # )
-
-        # Save best validation model
+        # Save best validation model; ID is indicated with "retrain"
         if valid_MAE < best_valid_MAE:
             best_valid_MAE = valid_MAE
             utils.save_model(model, args.save_dir, args.ID, device)

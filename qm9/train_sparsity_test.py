@@ -1,4 +1,4 @@
-"""This is for testing the effect of L1 pruning on trained model.  and evaluate test scores."""
+"""Examine sparsity vs test MAE after L1 pruning on a trained model. Set parameters below thresholds to 0 and evaluate test MAEs."""
 
 import wandb
 import torch
@@ -11,7 +11,7 @@ import utils
 import numpy as np
 
 
-def train_l1_prune(gpu, model, args):
+def train_sparsity_test(gpu, model, args):
     if args.gpus == 0:
         device = 'cpu'
     else:
@@ -36,10 +36,10 @@ def train_l1_prune(gpu, model, args):
     # Set up optimizer and loss function
     criterion = nn.L1Loss()
 
-    wandb.init(project="L1 Pruning " + args.dataset + " " + args.target, name=args.ID, config=args)
+    wandb.init(project="Sparsity-Test-" + args.dataset + "-" + args.target, name=args.ID, config=args)
 
     # (!) trained model's random sequence number
-    seq_num = str(33351)
+    seq_num = str(92158)
 
     # prune parameters according to a specified threshold
     thresholds = np.linspace(0, 0.1, 50)

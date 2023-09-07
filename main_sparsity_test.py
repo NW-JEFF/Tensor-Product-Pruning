@@ -1,4 +1,4 @@
-"""This is for testing the effect of L1 pruning on trained model. Will call qm9.train_l1_prune to prune and evaluate test scores."""
+"""Examine sparsity vs test MAE after L1 pruning on a trained model (for QM9 only). Will call qm9.train_sparsity_test."""
 
 import torch
 import argparse
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 
     # Select dataset.
     if args.dataset == "qm9":
-        from qm9.train_l1_prune import train_l1_prune
+        from qm9.train_sparsity_test import train_sparsity_test
         task = "graph"
         if args.feature_type == "one_hot":  # (non-geometric: concatenation of type 0) node feature
             input_irreps = Irreps("5x0e")
@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     # Select model
     # (!) trained model's random sequence number
-    seq_num = str(33351)  
+    seq_num = str(92158)  
     if args.model == "segnn":
         from models.segnn.segnn import SEGNN
         model = SEGNN(input_irreps,
@@ -166,11 +166,11 @@ if __name__ == "__main__":
     if args.gpus == 0:
         print('Starting training on the cpu...')
         args.mode = 'cpu'
-        train_l1_prune(0, model, args)
+        train_sparsity_test(0, model, args)
     elif args.gpus == 1:
         print('Starting training on a single gpu...')
         args.mode = 'gpu'
-        train_l1_prune(0, model, args)
+        train_sparsity_test(0, model, args)
     elif args.gpus > 1:
         print('Starting training on', args.gpus, 'gpus...')
         args.mode = 'gpu'
@@ -178,4 +178,4 @@ if __name__ == "__main__":
         port = _find_free_port()
         print('found free port', port)
         os.environ['MASTER_PORT'] = str(port)
-        mp.spawn(train, nprocs=args.gpus, args=(model, args,))
+        mp.spawn(train_sparsity_test, nprocs=args.gpus, args=(model, args,))
