@@ -130,7 +130,7 @@ if __name__ == "__main__":
 
     # Select model
     # (!) trained model's random sequence number
-    seq_num = str(92158)  
+    seq_num = str(33525)  
     if args.model == "segnn":
         from models.segnn.segnn import SEGNN
         model = SEGNN(input_irreps,

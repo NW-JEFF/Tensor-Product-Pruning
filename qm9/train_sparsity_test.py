@@ -39,7 +39,7 @@ def train_sparsity_test(gpu, model, args):
     wandb.init(project="Sparsity-Test-" + args.dataset + "-" + args.target, name=args.ID, config=args)
 
     # (!) trained model's random sequence number
-    seq_num = str(92158)
+    seq_num = str(33525)
 
     # prune parameters according to a specified threshold
     thresholds = np.linspace(0, 0.1, 50)
