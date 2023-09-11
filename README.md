@@ -1,12 +1,12 @@
 # E(3) Steerable GNN
 
-This repo containst the code and experiments for the paper
+This repo is adapted from the code framework for the paper
 [Geometric and Physical Quantities improve E(3) Equivariant Message Passing](https://arxiv.org/abs/2110.02905) by Johannes Brandstetter, Rob Hesselink, Elise van der Pol, Erik Bekkers and Max Welling. 
 
 ![](https://github.com/RobDHess/Steerable-E3-GNN/blob/main/assets/forward_pass_faster_larger.gif)
 
 
-The codebase was created by Johannes Brandstetter, Rob Hesselink and Erik Bekkers. If you use this code in your work, please cite us:
+The codebase was created by Johannes Brandstetter, Rob Hesselink and Erik Bekkers.
 
 ```bibtex
 @article{brandstetter2021geometric,
@@ -19,7 +19,7 @@ The codebase was created by Johannes Brandstetter, Rob Hesselink and Erik Bekker
 }
 ```
 
-We have also created an accompanying [blog post](https://robdhess.github.io/Steerable-E3-GNN/).
+They have also created an accompanying [blog post](https://robdhess.github.io/Steerable-E3-GNN/).
 
 This blog post contains additional material (Youtube videos, talks, ...) to help you dive further into the subject.
 
@@ -88,8 +88,33 @@ python3 main.py --dataset=gravity --neighbours=6 --epochs=1000 --max_samples=100
 ```
 #### Timing experiments
 For QM9, please run the following, using further model specifications. The warmup period allows for the warmup of CUDA kernels. 
+
 ```bash
 python3 time.py --warmup=50 --forward_passes=1000
 ```
 
 For the N-Body datasets, please run the previous commands with the flag ```--time_exp=yes```
+
+
+
+
+#### Extra Functionalities
+Test MAE vs Sparsity: Plot the test MAE vs Sparsity based on a trained network by pruning its learned weights associated with the fully connected tensor product. Specify the name of your model in `main_sparsity_test.py` and `qm9.train_sparsity_test.py`. To run, remember to append the key parser arguments you used in the training.
+
+```bash
+python main_sparsity_test.py
+```
+
+For L1 Pruning followed with retraining: 
+
+```bash
+python main_prune_retrain.py --dataset=qm9 --epochs=50 --target=alpha --radius=2 --model=segnn --lmax_h=2 --lmax_attr=3 --layers=7 --subspace_type=weightbalanced --norm=instance --batch_size=128 --gpu=1 --weight_decay=1e-8 --pool=avg --log=True
+```
+
+Some plotting functions are implemented under the folder `model_performance`.
+
+
+
+
+
+
