@@ -152,6 +152,8 @@ def train(gpu, model, args):
         #         amount = prune_ratio,
         #     )
 
+        # trial
+
         
         # Evaluate on validation set
         valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
