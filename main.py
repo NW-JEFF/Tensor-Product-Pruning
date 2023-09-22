@@ -155,7 +155,7 @@ if __name__ == "__main__":
                       pool=args.pool,
                       task=task,
                       additional_message_irreps=additional_message_irreps)
-        args.ID = "_".join([args.model, args.dataset, args.target, str(np.random.randint(1e4, 1e5))])
+        args.ID = "_".join([args.model, args.dataset, args.target, str(np.random.randint(1e5, 1e6))])
     elif args.model == "seconv":
         from models.segnn.seconv import SEConv
         model = SEConv(input_irreps,
@@ -169,7 +169,7 @@ if __name__ == "__main__":
                        task=task,
                        additional_message_irreps=additional_message_irreps,
                        conv_type=args.conv_type)
-        args.ID = "_".join([args.model, args.conv_type, args.dataset, str(np.random.randint(1e4, 1e5))])
+        args.ID = "_".join([args.model, args.conv_type, args.dataset, str(np.random.randint(1e5, 1e6))])
     else:
         raise Exception("Model could not be found")
 

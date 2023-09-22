@@ -49,6 +49,14 @@ def train(gpu, model, args):
     loss_sum = 0
     train_MAE_sum = 0
 
+
+    # (!) parameters for iterative pruning
+    remain_rate = 0.6  # target proportion of remaining weights
+    epoch_interval = 10  # number of epochs to wait until next pruning
+    num_prune = args.epochs // epoch_interval  # number of prunings that will occur
+    prune_ratio = 1 - remain_rate ** (1/num_prune)  # proportion of weights to prune each time
+
+
     # Init wandb
     if args.log and gpu == 0:
         wandb.init(project="SEGNN " + args.dataset + " " + args.target, name=args.ID, config=args)
@@ -69,14 +77,16 @@ def train(gpu, model, args):
             
             loss = criterion(out, (graph.y - target_mean)/target_mad)
 
+
             # (!) add extra l1 loss
             # sparsity_loss = 0
             # for n,m in model.named_parameters():
             #     if 'tp.weight' in n:
             #         sparsity_loss += m.abs().mean()
-            # l1_loss_weight = 1e-5
+            # l1_loss_weight = 1e-3
             # loss += sparsity_loss * l1_loss_weight
             
+
             optimizer.zero_grad()
             loss.backward()
             optimizer.step()
@@ -101,10 +111,8 @@ def train(gpu, model, args):
                 loss_sum = 0
                 train_MAE_sum = 0
 
-        # Evaluate on validation set
-        valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
 
-        # (!) Iterative Pruning
+        # (!) Iterative Magnitude Pruning per epoch
         # message_parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
         # prune.global_unstructured(
         #     message_parameters_to_prune,
@@ -125,6 +133,28 @@ def train(gpu, model, args):
         #     pruning_method=prune.L1Unstructured,
         #     amount=0.015,
         # )
+
+
+        # (!) Iterative Magnitude Pruning for each 10 epochs
+        # if (epoch+1) % 10 == 0:
+        #     message_parameters_to_prune = [(segnn_layer.message_layer_1.tp, "weight") for segnn_layer in model.layers]
+        #     message_parameters_to_prune += [(segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers]
+        #     update_parameters_to_prune = [(segnn_layer.update_layer_1.tp, "weight") for segnn_layer in model.layers]
+        #     update_parameters_to_prune += [(segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers]
+        #     other_layers = [model.embedding_layer, model.pre_pool1, model.pre_pool2,
+        #                     model.post_pool1, model.post_pool2]
+        #     other_parameters_to_prune = [(layer.tp, "weight") for layer in other_layers]
+        #     parameters_to_prune = message_parameters_to_prune + update_parameters_to_prune + other_parameters_to_prune
+        #     parameters_to_prune = tuple(parameters_to_prune)
+        #     prune.global_unstructured(
+        #         parameters_to_prune,
+        #         pruning_method = prune.L1Unstructured,
+        #         amount = prune_ratio,
+        #     )
+
+        
+        # Evaluate on validation set
+        valid_MAE = evaluate(model, valid_loader, criterion, device, args.gpus, target_mean, target_mad)
 
         # Save best validation model
         if valid_MAE < best_valid_MAE:
