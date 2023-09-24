@@ -6,8 +6,7 @@ import os
 import torch
 import torch.nn as nn
 import torch.distributed as dist
-# from torch.optim.lr_scheduler import MultiStepLR
-from torch.optim.lr_scheduler import CosineAnnealingLR
+from torch.optim.lr_scheduler import CosineAnnealingLR, MultiStepLR
 from torch.nn.utils import prune
 
 from qm9.dataset import QM9
@@ -28,6 +27,9 @@ def train_prune_retrain(gpu, model, args):
     if args.gpus > 1:
         model = nn.parallel.DistributedDataParallel(model, device_ids=[gpu], output_device=gpu)
 
+    torch.manual_seed(0)
+    np.random.seed(0)
+
     # Create datasets and dataloaders
     train_loader = utils.make_dataloader(QM9(args.root, args.target, args.radius, "train", args.lmax_attr,
                                              feature_type=args.feature_type), args.batch_size, args.num_workers, args.gpus, gpu)
@@ -39,10 +41,13 @@ def train_prune_retrain(gpu, model, args):
     # Get train set statistics
     target_mean, target_mad = train_loader.dataset.calc_stats()
 
-    # (!) Set up smaller stepsize for retraining
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=args.weight_decay)
-    scheduler = CosineAnnealingLR(optimizer, T_max=55, verbose=True)
-    # scheduler = MultiStepLR(optimizer, milestones=[int(0.8*(args.epochs)), int(0.9*(args.epochs))], verbose=True)
+    # If reinitialize, keep the setting, else set up smaller stepsizes to continue training
+    if args.reinitialize:
+        optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+        scheduler = MultiStepLR(optimizer, milestones=[int(0.8*(args.epochs)), int(0.9*(args.epochs))], verbose=True)
+    else:
+        optimizer = torch.optim.Adam(model.parameters(), lr=1e-5, weight_decay=args.weight_decay)
+        scheduler = CosineAnnealingLR(optimizer, T_max=args.epochs*1.1, verbose=True)
     criterion = nn.L1Loss()
 
     # Logging parameters
@@ -53,17 +58,65 @@ def train_prune_retrain(gpu, model, args):
     loss_sum = 0
     train_MAE_sum = 0
 
-    # (!) trained model's random sequence number
-    seq_num = str(92158)
+    # Load trained parameters
+    seq_num = str(args.model_seq)
     trained_paras = torch.load('/mnt/workspace/linchen/nanxiang/my_segnn/saved models/segnn_qm9_alpha_'+seq_num+'_cuda:0.pt')
 
-    # Prune parameters with L1 norm less than the specified threshold
-    t = 0.0041
+    assert args.reinitialize in ["random", "reuse"]
+    if args.reinitialize == "random":
+        # directly take the current random reinitialization
+        init_paras = model.state_dict()
+    elif args.reinitialize == "reuse":
+        # load the initialization parameters of the corresponding run
+        init_paras = torch.load('/mnt/workspace/linchen/nanxiang/my_segnn/saved models/segnn_qm9_alpha_'+seq_num+'_init.pt')
+
+    # In case the model is obtained from torch.nn.utils.prune, this ensures modules have the right parameters
+    modified_trained_paras = trained_paras.copy()
     for k, v in trained_paras.items():
+        if k.endswith(".tp.weight_orig"):
+            new_k = k.replace(".tp.weight_orig", ".tp.weight")
+            mask_key = k.replace(".tp.weight_orig", ".tp.weight_mask")
+            mask = trained_paras[mask_key].detach().cpu()
+            zero_mask = torch.nonzero(mask==0)
+            v[zero_mask] = 0
+            modified_trained_paras[new_k] = v
+    trained_paras = modified_trained_paras
+    keys_to_remove = [k for k in modified_trained_paras if k.endswith(".tp.weight_orig") or k.endswith(".tp.weight_mask")]
+    for k in keys_to_remove:
+        del trained_paras[k]
+
+    # Prune parameters with magnitude less than the specified threshold
+    if args.prune_threshold:
+        for k, v in trained_paras.items():
             if "tp.weight" in k:
-                v[v.abs() < t] = 0
-            
-    model.load_state_dict(trained_paras)
+                v[v.abs() < args.prune_threshold] = 0
+
+    if args.reinitialize:
+        model.load_state_dict(init_paras)
+    else:
+        model.load_state_dict(trained_paras)
+
+    # create a mask according to zero entries in trained_paras
+    message_layers = [segnn_layer.message_layer_1.tp for segnn_layer in model.layers]
+    message_layers += [segnn_layer.message_layer_2.tp for segnn_layer in model.layers]
+    update_layers = [segnn_layer.update_layer_1.tp for segnn_layer in model.layers]
+    update_layers += [segnn_layer.update_layer_2.tp for segnn_layer in model.layers]
+    other_layers = [model.embedding_layer.tp, model.pre_pool1.tp, model.pre_pool2.tp,
+                    model.post_pool1.tp, model.post_pool2.tp]
+    layers_to_prune = message_layers + update_layers + other_layers
+
+    message_keys = [f"layers.{i}.message_layer_{j}.tp.weight" for j in range(1,3) for i in range(7)]
+    update_keys = [f"layers.{i}.update_layer_{j}.tp.weight" for j in range(1,3) for i in range(7)]
+    other_keys = ["embedding_layer.tp.weight", "pre_pool1.tp.weight", "pre_pool2.tp.weight", 
+                  "post_pool1.tp.weight", "post_pool2.tp.weight"]
+    keys = message_keys + update_keys + other_keys
+
+    for idx, layer in enumerate(layers_to_prune):
+        key = keys[idx]
+        value = trained_paras[key]
+        prune_mask = (value!=0).float()
+        prune.custom_from_mask(layer, name="weight", mask=prune_mask)
+
 
     # Init wandb
     if args.log and gpu == 0:

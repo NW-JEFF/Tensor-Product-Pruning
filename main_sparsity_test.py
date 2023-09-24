@@ -76,6 +76,8 @@ if __name__ == "__main__":
     # Model parameters
     parser.add_argument('--model', type=str, default="segnn",
                         help='Model name')
+    parser.add_argument('--model_seq', type=int, required=True,
+                        help='The randomly generated sequence number of a saved trained model') 
     parser.add_argument('--hidden_features', type=int, default=128,
                         help='max degree of hidden rep')
     parser.add_argument('--lmax_h', type=int, default=2,
@@ -129,8 +131,7 @@ if __name__ == "__main__":
         raise Exception("Subspace type not found")
 
     # Select model
-    # (!) trained model's random sequence number
-    seq_num = str(33525)  
+    seq_num = str(args.model_seq)  
     if args.model == "segnn":
         from models.segnn.segnn import SEGNN
         model = SEGNN(input_irreps,

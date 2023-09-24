@@ -25,6 +25,13 @@ def train(gpu, model, args):
     if args.gpus > 1:
         model = nn.parallel.DistributedDataParallel(model, device_ids=[gpu], output_device=gpu)
 
+    # save the initialization parameters
+    init_paras = model.state_dict()
+    torch.save(init_paras, os.path.join(args.save_dir, args.ID + "_init.pt"))
+
+    torch.manual_seed(0)
+    np.random.seed(0)
+
     # Create datasets and dataloaders
     train_loader = utils.make_dataloader(QM9(args.root, args.target, args.radius, "train", args.lmax_attr,
                                              feature_type=args.feature_type), args.batch_size, args.num_workers, args.gpus, gpu)
@@ -50,11 +57,29 @@ def train(gpu, model, args):
     train_MAE_sum = 0
 
 
-    # (!) parameters for iterative pruning
-    remain_rate = 0.6  # target proportion of remaining weights
-    epoch_interval = 10  # number of epochs to wait until next pruning
-    num_prune = args.epochs // epoch_interval  # number of prunings that will occur
+    # Parameters for iterative pruning
+    remain_rate = 0.2  # target proportion of remaining weights
+    prune_interval = 17  # number of epochs to wait until next pruning
+    max_num_prune = 4  # max number of prunings allowed
+    num_prune = min(args.epochs // prune_interval, max_num_prune)  # number of prunings that will occur
     prune_ratio = 1 - remain_rate ** (1/num_prune)  # proportion of weights to prune each time
+
+
+    # (!) Random pruning at initialization
+    # message_parameters_to_prune = [(segnn_layer.message_layer_1.tp, "weight") for segnn_layer in model.layers]
+    # message_parameters_to_prune += [(segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers]
+    # update_parameters_to_prune = [(segnn_layer.update_layer_1.tp, "weight") for segnn_layer in model.layers]
+    # update_parameters_to_prune += [(segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers]
+    # other_layers = [model.embedding_layer, model.pre_pool1, model.pre_pool2,
+    #                 model.post_pool1, model.post_pool2]
+    # other_parameters_to_prune = [(layer.tp, "weight") for layer in other_layers]
+    # parameters_to_prune = message_parameters_to_prune + update_parameters_to_prune + other_parameters_to_prune
+    # parameters_to_prune = tuple(parameters_to_prune)
+    # prune.global_unstructured(
+    #     parameters_to_prune,
+    #     pruning_method = prune.RandomUnstructured,
+    #     amount = 1 - remain_rate,
+    # )
 
 
     # Init wandb
@@ -79,12 +104,12 @@ def train(gpu, model, args):
 
 
             # (!) add extra l1 loss
-            # sparsity_loss = 0
-            # for n,m in model.named_parameters():
-            #     if 'tp.weight' in n:
-            #         sparsity_loss += m.abs().mean()
-            # l1_loss_weight = 1e-3
-            # loss += sparsity_loss * l1_loss_weight
+            if args.l1_weight:
+                sparsity_loss = 0
+                for n,m in model.named_parameters():
+                    if 'tp.weight' in n:
+                        sparsity_loss += m.abs().mean()
+                loss += sparsity_loss * args.l1_weight
             
 
             optimizer.zero_grad()
@@ -112,47 +137,22 @@ def train(gpu, model, args):
                 train_MAE_sum = 0
 
 
-        # (!) Iterative Magnitude Pruning per epoch
-        # message_parameters_to_prune = tuple((segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers)
-        # prune.global_unstructured(
-        #     message_parameters_to_prune,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.015,
-        # )
-        # update_parameters_to_prune = tuple((segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers)
-        # prune.global_unstructured(
-        #     update_parameters_to_prune,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.007,
-        # )
-        # pool_layers = [model.pre_pool1, model.pre_pool2,
-        #                 model.post_pool1, model.post_pool2]
-        # pool_parameters_to_prune = tuple((layer.tp, "weight") for layer in pool_layers)
-        # prune.global_unstructured(
-        #     pool_parameters_to_prune,
-        #     pruning_method=prune.L1Unstructured,
-        #     amount=0.015,
-        # )
-
-
-        # (!) Iterative Magnitude Pruning for each 10 epochs
-        # if (epoch+1) % 10 == 0:
-        #     message_parameters_to_prune = [(segnn_layer.message_layer_1.tp, "weight") for segnn_layer in model.layers]
-        #     message_parameters_to_prune += [(segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers]
-        #     update_parameters_to_prune = [(segnn_layer.update_layer_1.tp, "weight") for segnn_layer in model.layers]
-        #     update_parameters_to_prune += [(segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers]
-        #     other_layers = [model.embedding_layer, model.pre_pool1, model.pre_pool2,
-        #                     model.post_pool1, model.post_pool2]
-        #     other_parameters_to_prune = [(layer.tp, "weight") for layer in other_layers]
-        #     parameters_to_prune = message_parameters_to_prune + update_parameters_to_prune + other_parameters_to_prune
-        #     parameters_to_prune = tuple(parameters_to_prune)
-        #     prune.global_unstructured(
-        #         parameters_to_prune,
-        #         pruning_method = prune.L1Unstructured,
-        #         amount = prune_ratio,
-        #     )
-
-        # trial
+        # (!) Iterative Magnitude Pruning for each 10 epochs, for at most num_prune times
+        if (epoch+1) % prune_interval == 0 and (epoch+1)//prune_interval <= num_prune:
+            message_parameters_to_prune = [(segnn_layer.message_layer_1.tp, "weight") for segnn_layer in model.layers]
+            message_parameters_to_prune += [(segnn_layer.message_layer_2.tp, "weight") for segnn_layer in model.layers]
+            update_parameters_to_prune = [(segnn_layer.update_layer_1.tp, "weight") for segnn_layer in model.layers]
+            update_parameters_to_prune += [(segnn_layer.update_layer_2.tp, "weight") for segnn_layer in model.layers]
+            other_layers = [model.embedding_layer, model.pre_pool1, model.pre_pool2,
+                            model.post_pool1, model.post_pool2]
+            other_parameters_to_prune = [(layer.tp, "weight") for layer in other_layers]
+            parameters_to_prune = message_parameters_to_prune + update_parameters_to_prune + other_parameters_to_prune
+            parameters_to_prune = tuple(parameters_to_prune)
+            prune.global_unstructured(
+                parameters_to_prune,
+                pruning_method = prune.L1Unstructured,
+                amount = prune_ratio,
+            )
 
         
         # Evaluate on validation set

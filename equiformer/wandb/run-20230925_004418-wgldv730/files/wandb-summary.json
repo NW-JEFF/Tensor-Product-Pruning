@@ -1,0 +1,1 @@
+{"train MAE": 0.09426670930021995, "_timestamp": 1695602836.915741, "_runtime": 28978.08070898056, "_step": 550, "val error": 0.08437261924743653, "test error": 0.08435463698003202, "best validated test error": 0.08435468203571736, "_wandb": {"runtime": 28961}}

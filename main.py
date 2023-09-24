@@ -90,6 +90,7 @@ if __name__ == "__main__":
                         help='Pooling type type [avg, sum]')
     parser.add_argument('--conv_type', type=str, default="linear",
                         help='Linear or non-linear aggregation of local information in SEConv')
+    parser.add_argument('--l1_weight', type=float, help='factor controlling the level of L1 loss')           
 
     # Parallel computing stuff
     parser.add_argument('-g', '--gpus', default=0, type=int,

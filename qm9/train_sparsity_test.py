@@ -38,8 +38,8 @@ def train_sparsity_test(gpu, model, args):
 
     wandb.init(project="Sparsity-Test-" + args.dataset + "-" + args.target, name=args.ID, config=args)
 
-    # (!) trained model's random sequence number
-    seq_num = str(33525)
+    # trained model's sequence number
+    seq_num = str(args.model_seq)
 
     # prune parameters according to a specified threshold
     thresholds = np.linspace(0, 0.1, 50)
@@ -48,6 +48,22 @@ def train_sparsity_test(gpu, model, args):
     for t in thresholds:
         # (!) Check file path
         trained_paras = torch.load('/mnt/workspace/linchen/nanxiang/my_segnn/saved models/segnn_qm9_alpha_'+seq_num+'_cuda:0.pt')
+
+        # In case the model is obtained from torch.nn.utils.prune, this ensures modules have the right parameters
+        modified_trained_paras = trained_paras.copy()
+        for k, v in trained_paras.items():
+            if k.endswith(".tp.weight_orig"):
+                new_k = k.replace(".tp.weight_orig", ".tp.weight")
+                mask_key = k.replace(".tp.weight_orig", ".tp.weight_mask")
+                mask = trained_paras[mask_key].detach().cpu()
+                zero_mask = torch.nonzero(mask==0)
+                v[zero_mask] = 0
+                modified_trained_paras[new_k] = v
+        trained_paras = modified_trained_paras
+        keys_to_remove = [k for k in modified_trained_paras if k.endswith(".tp.weight_orig") or k.endswith(".tp.weight_mask")]
+        for k in keys_to_remove:
+            del trained_paras[k]
+
         total_para = 0
         non_zero_para = 0
         for k, v in trained_paras.items():

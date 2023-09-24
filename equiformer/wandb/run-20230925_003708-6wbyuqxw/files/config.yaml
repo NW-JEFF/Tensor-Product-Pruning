@@ -1,0 +1,183 @@
+wandb_version: 1
+
+output_dir:
+  desc: null
+  value: models/qm9/equiformer/se_l2/target@1/
+model_name:
+  desc: null
+  value: graph_attention_transformer_nonlinear_l2
+input_irreps:
+  desc: null
+  value: 5x0e
+radius:
+  desc: null
+  value: 5.0
+num_basis:
+  desc: null
+  value: 128
+output_channels:
+  desc: null
+  value: 1
+epochs:
+  desc: null
+  value: 50
+batch_size:
+  desc: null
+  value: 128
+model_ema:
+  desc: null
+  value: false
+model_ema_decay:
+  desc: null
+  value: 0.9999
+model_ema_force_cpu:
+  desc: null
+  value: false
+drop_path:
+  desc: null
+  value: 0.0
+opt:
+  desc: null
+  value: adamw
+opt_eps:
+  desc: null
+  value: 1.0e-08
+opt_betas:
+  desc: null
+  value: null
+clip_grad:
+  desc: null
+  value: null
+momentum:
+  desc: null
+  value: 0.9
+weight_decay:
+  desc: null
+  value: 0.005
+l1_weight:
+  desc: null
+  value: 1.0e-05
+sched:
+  desc: null
+  value: cosine
+lr:
+  desc: null
+  value: 0.0005
+lr_noise:
+  desc: null
+  value: null
+lr_noise_pct:
+  desc: null
+  value: 0.67
+lr_noise_std:
+  desc: null
+  value: 1.0
+warmup_lr:
+  desc: null
+  value: 1.0e-06
+min_lr:
+  desc: null
+  value: 1.0e-06
+decay_epochs:
+  desc: null
+  value: 30
+warmup_epochs:
+  desc: null
+  value: 1
+cooldown_epochs:
+  desc: null
+  value: 10
+patience_epochs:
+  desc: null
+  value: 10
+decay_rate:
+  desc: null
+  value: 0.1
+print_freq:
+  desc: null
+  value: 100
+log:
+  desc: null
+  value: true
+target:
+  desc: null
+  value: 1
+data_path:
+  desc: null
+  value: datasets/qm9
+feature_type:
+  desc: null
+  value: one_hot
+compute_stats:
+  desc: null
+  value: false
+standardize:
+  desc: null
+  value: true
+loss:
+  desc: null
+  value: l1
+seed:
+  desc: null
+  value: 0
+workers:
+  desc: null
+  value: 4
+pin_mem:
+  desc: null
+  value: true
+amp:
+  desc: null
+  value: false
+world_size:
+  desc: null
+  value: 1
+dist_url:
+  desc: null
+  value: env://
+ID:
+  desc: null
+  value: '755983'
+distributed:
+  desc: null
+  value: false
+rank:
+  desc: null
+  value: 0
+local_rank:
+  desc: null
+  value: 0
+_wandb:
+  desc: null
+  value:
+    python_version: 3.9.17
+    cli_version: 0.15.8
+    framework: torch
+    is_jupyter_run: false
+    is_kaggle_kernel: false
+    start_time: 1695573428.768201
+    t:
+      1:
+      - 1
+      - 41
+      - 49
+      - 51
+      - 55
+      - 63
+      - 77
+      2:
+      - 1
+      - 41
+      - 49
+      - 51
+      - 55
+      - 63
+      - 77
+      3:
+      - 13
+      - 16
+      - 23
+      4: 3.9.17
+      5: 0.15.8
+      8:
+      - 5
